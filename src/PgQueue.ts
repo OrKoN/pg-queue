@@ -83,7 +83,9 @@ export abstract class PgQueue {
       await client.query('ROLLBACK');
       throw e;
     } finally {
-      await this.estimateQueueSize(client);
+      try {
+        await this.estimateQueueSize(client);
+      } catch {}
       client.release();
     }
   }
