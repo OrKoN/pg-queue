@@ -14,7 +14,8 @@
     "build": "tsdx build",
     "test": "tsdx test",
     "lint": "tsdx lint",
-    "docs": "typedoc --plugin typedoc-plugin-markdown"
+    "docs": "typedoc --plugin typedoc-plugin-markdown",
+    "benchmark": "ts-node ./test/benchmark.ts"
   },
   "peerDependencies": {},
   "husky": {
@@ -32,6 +33,7 @@
     "@types/jest": "^24.0.23",
     "@types/pg": "^7.11.2",
     "husky": "^3.1.0",
+    "ts-node": "^8.5.4",
     "tsdx": "^0.11.0",
     "tslib": "^1.10.0",
     "typedoc": "^0.15.4",
