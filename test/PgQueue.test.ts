@@ -15,7 +15,7 @@ describe('PgQueue', () => {
 
     class MyWorker extends PgQueue {
       async perform() {
-        await sleep(300);
+        await sleep(1);
         completedJobs++;
         if (numJobs === completedJobs) {
           endProcessing = +new Date();
@@ -23,7 +23,9 @@ describe('PgQueue', () => {
       }
     }
 
-    const queue = new MyWorker('postgresql://localhost:5434/orkon-private');
+    const queue = new MyWorker({
+      connectionString: 'postgresql://localhost:5434/orkon-private',
+    });
 
     try {
       const promises = [];

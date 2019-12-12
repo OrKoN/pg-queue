@@ -1,23 +1,41 @@
 import { Pool, PoolClient } from 'pg';
 
-function escSql(name: string) {
+function e(name: string) {
   return '"' + name.replace(/"/g, '""') + '"';
+}
+
+interface Options {
+  connectionString?: string;
+  maxTransactionConcurrency?: number;
+  queueName?: string;
+  tableName?: string;
 }
 
 export abstract class PgQueue {
   private pool: Pool;
-  private queue = 'default';
-  private tableName = '__pg_queue_jobs';
+  private queueName: string;
+  private tableName: string;
   private estimatedQueueSize = 0;
-  private lastEstimate = 0;
+  private lastEstimateDate = 0;
   private interval?: NodeJS.Timeout;
 
-  public constructor(connectionString: string, maxConcurrency = 10) {
-    this.pool = new Pool({
-      connectionString,
-      max: maxConcurrency,
-    });
+  public constructor(opts?: Options) {
+    this.tableName = (opts && opts.tableName) || '__pg_queue_jobs';
+    this.queueName = (opts && opts.queueName) || 'default';
+    if (this.queueName.length > 255) {
+      throw new Error('queueName must be less or equal to 255');
+    }
+    this.pool = new Pool(
+      opts
+        ? {
+            connectionString: opts.connectionString,
+            max: opts.maxTransactionConcurrency,
+          }
+        : undefined
+    );
   }
+
+  public abstract async perform(data: any, client: PoolClient): Promise<void>;
 
   public async start() {
     await this.migrate();
@@ -26,7 +44,10 @@ export abstract class PgQueue {
   }
 
   public async stop() {
-    if (this.interval) clearInterval(this.interval);
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = undefined;
+    }
     await this.pool.end();
   }
 
@@ -35,8 +56,8 @@ export abstract class PgQueue {
     try {
       await client.query('BEGIN');
       await client.query(
-        `INSERT INTO ${escSql(this.tableName)}(queue, data) VALUES ($1, $2)`,
-        [this.queue, JSON.stringify(data)]
+        `INSERT INTO ${e(this.tableName)}(queue, data) VALUES ($1, $2)`,
+        [this.queueName, JSON.stringify(data)]
       );
       await client.query('COMMIT');
     } catch (e) {
@@ -47,9 +68,10 @@ export abstract class PgQueue {
     }
   }
 
-  public abstract async perform(data: any, client: PoolClient): Promise<void>;
-
   private async process() {
+    if (!this.interval) {
+      return;
+    }
     while (this.estimatedQueueSize) {
       this.estimatedQueueSize--;
       this.dequeue();
@@ -62,10 +84,10 @@ export abstract class PgQueue {
     try {
       await client.query('BEGIN');
       const { rows } = await client.query(
-        `DELETE FROM ${escSql(this.tableName)}
+        `DELETE FROM ${e(this.tableName)}
           WHERE id = (
             SELECT id
-            FROM ${escSql(this.tableName)}
+            FROM ${e(this.tableName)}
             WHERE queue = $1
             ORDER BY id
             FOR UPDATE SKIP LOCKED
@@ -73,7 +95,7 @@ export abstract class PgQueue {
           )
           RETURNING *;
         `,
-        [this.queue]
+        [this.queueName]
       );
       if (rows.length > 0) {
         await this.perform(rows[0].data, client);
@@ -91,20 +113,20 @@ export abstract class PgQueue {
   }
 
   private async estimateQueueSize(client: PoolClient) {
-    if (+new Date() - this.lastEstimate < 100) {
+    if (+new Date() - this.lastEstimateDate < 100) {
       return;
     }
     const count = await client.query(
       `SELECT COUNT(1)
-       FROM ${escSql(this.tableName)}
+       FROM ${e(this.tableName)}
        WHERE queue = $1`,
-      [this.queue]
+      [this.queueName]
     );
     const queueSize = parseInt(count.rows[0].count, 10);
     if (queueSize > this.estimatedQueueSize) {
       this.estimatedQueueSize = queueSize;
     }
-    this.lastEstimate = +new Date();
+    this.lastEstimateDate = +new Date();
   }
 
   private async migrate() {
