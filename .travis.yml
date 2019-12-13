@@ -8,8 +8,8 @@ addons:
       - postgresql-client-12
 env:
   global:
-    - PGPORT=5433
-    - DATABASE_URL=postgres://postgres@localhost:5433/travis_ci_test
+    - PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
+    - DATABASE_URL=postgres://postgres:postgres@localhost:5433/travis_ci_test
 
 node_js:
   - lts/erbium
