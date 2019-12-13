@@ -4,15 +4,19 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+interface Message {
+  i: number;
+}
+
 async function main() {
-  let numJobs = 5000;
+  let numJobs = 20000;
   let completedJobs = 0;
   let startQueuing = +new Date();
   let startProcessing = +new Date();
   let endQueueing = +new Date();
   let endProcessing = +new Date();
 
-  class MyWorker extends PgQueue {
+  class MyWorker extends PgQueue<Message> {
     async perform() {
       // await sleep(1000);
       completedJobs++;
@@ -23,7 +27,9 @@ async function main() {
   }
 
   const queue = new MyWorker({
-    connectionString: 'postgresql://localhost:5434/orkon-private',
+    connectionString: process.env.DATABASE_URL,
+    maxTransactionConcurrency: 100,
+    maxProcessingConcurrency: 100,
   });
 
   try {
