@@ -7,19 +7,6 @@ env:
 node_js:
   - lts/erbium
 
-matrix:
-  include:
-    - addons:
-        postgresql: '9.3'
-    - addons:
-        postgresql: '9.4'
-    - addons:
-        postgresql: '9.5'
-    - addons:
-        postgresql: '9.6'
-    - addons:
-        postgresql: '10'
-    - addons:
-        postgresql: '11'
-    - addons:
-        postgresql: '12'
+addons:
+  postgresql: '12'
+
