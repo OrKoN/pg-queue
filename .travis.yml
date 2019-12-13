@@ -1,16 +1,18 @@
 language: node_js
 
-services:
-  - postgresql
+addons:
+  postgresql: '10'
+  apt:
+    packages:
+      - postgresql-10
+      - postgresql-client-10
+env:
+  global:
+    - PGPORT=5433
+    - DATABASE_URL=postgres://postgres@localhost:5433/travis_ci_test
 
 node_js:
   - lts/erbium
 
-addons:
-  postgresql: '12'
-
 before_script:
-  - psql -c 'create database travis_ci_test;' -U postgres
-
-env:
-  - DATABASE_URL=postgres://postgres@localhost/travis_ci_test
+  - psql -p 5433 -c 'create database travis_ci_test;' -U postgres
