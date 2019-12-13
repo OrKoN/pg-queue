@@ -1,8 +1,4 @@
 language: node_js
-dist: bionic
-
-env:
-  - CC=clang CXX=clang++ npm_config_clang=1 PGUSER=postgres PGDATABASE=postgres
 
 node_js:
   - lts/erbium
@@ -10,3 +6,8 @@ node_js:
 addons:
   postgresql: '12'
 
+before_script:
+  - psql -c 'create database travis_ci_test;' -U postgres
+
+env:
+  - DATABASE_URL=postgres://postgres@localhost/travis_ci_test
