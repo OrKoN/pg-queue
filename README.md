@@ -4,10 +4,10 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript:
 
 ```
 class EmailSendingQueue extends PgQueue<Email> {
-  async perform(email, client) {
+  async perform(email, db) {
     // ... send the email ...
-    // optionally use client for transaction processing of the data
-    // await client.query('UPDATE user SET lastEmailOn = NOW() WHERE id = someone')
+    // optionally use db for processing of the data in the same transaction
+    // await db.query('UPDATE user SET lastEmailOn = NOW() WHERE id = someone')
   }
 }
 
@@ -15,9 +15,9 @@ const queue = new EmailSendingQueue();
 
 await queue.start();
 await queue.enqueue({ to: 'someone', message: 'Welcome Email' });
-await queue.enqueue(async (client) => {
-  // optionally use client to perform changes in the enqueueing transaction
-  // await client.query('UPDATE user SET registered = true WHERE id = someone')
+await queue.enqueue(async (db) => {
+  // optionally use db to perform changes in the enqueueing transaction
+  // await db.query('UPDATE user SET registered = true WHERE id = someone')
   // return data to enqueue
   return { to: 'someone', message: 'Welcome Email' };
 });
