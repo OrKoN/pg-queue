@@ -20,6 +20,7 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript.
 - pg-queue stores jobs in a table in your database. Multiple queues are stored in the same table.
 - pg-queue polls the queues every 100 ms (configurable) to see if there are any jobs
 - pg-queue fetches `maxProcessingConcurrency` jobs using `SELECT FOR UPDATE SKIP LOCKED` so that concurrent workers are not blocked
+- if you need FIFO processing, you need to have only a single consuming instance of PgQueue and `maxProcessingConcurrency=1`.
 
 ## How to use
 
