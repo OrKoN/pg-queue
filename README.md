@@ -15,6 +15,12 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript.
 - distributing task processing between multiple workers
 - other background tasks
 
+## Implementation Details
+
+- pg-queue stores jobs in a table in your database. Multiple queues are stored in the same table.
+- pg-queue polls the queues every 100 ms (configurable) to see if there are any jobs
+- pg-queue fetches `maxProcessingConcurrency` jobs using `SELECT FOR UPDATE SKIP LOCKED` so that concurrent workers are not blocked
+
 ## How to use
 
 - Implement your queue class by extending PgQueue. One queue deals with one message type provided via `<Email>`
