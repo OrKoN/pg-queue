@@ -15,7 +15,7 @@ interface Options {
   tableName?: string;
 }
 
-type EnqueueFn<T> = (data: T) => Promise<void>;
+type HookFn<T> = (client: PoolClient) => Promise<T>;
 
 export abstract class PgQueue<T> extends EventEmitter {
   private maxProcessingConcurrency: number;
@@ -64,25 +64,25 @@ export abstract class PgQueue<T> extends EventEmitter {
     await this.pool.end();
   }
 
-  public async enqueue(data: T) {
-    await this.enqueueing(async enqueue => {
-      await enqueue(data);
-    });
+  public async enqueue(dataOrFn: T | HookFn<T>) {
+    await this._enqueue(
+      dataOrFn instanceof Function
+        ? dataOrFn
+        : async () => {
+            return dataOrFn;
+          }
+    );
   }
 
-  public async enqueueing(
-    fn: (enqueue: EnqueueFn<T>, client: PoolClient) => Promise<void>
-  ) {
+  public async _enqueue(fn: HookFn<T>) {
     const client = await this.pool.connect();
-    const enqueueFn = async (data: T) => {
+    try {
+      await client.query('BEGIN');
+      const data = await fn(client);
       await client.query(
         `INSERT INTO ${e(this.tableName)}(queue, data) VALUES ($1, $2)`,
         [this.queueName, JSON.stringify(data)]
       );
-    };
-    try {
-      await client.query('BEGIN');
-      await fn(enqueueFn, client);
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');

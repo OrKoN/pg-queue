@@ -15,10 +15,11 @@ const queue = new EmailSendingQueue();
 
 await queue.start();
 await queue.enqueue({ to: 'someone', message: 'Welcome Email' });
-await queue.enqueueing(async (enqueue, client) => {
+await queue.enqueue(async (client) => {
   // optionally use client to perform changes in the enqueueing transaction
   // await client.query('UPDATE user SET registered = true WHERE id = someone')
-  await enqueue({ to: 'someone', message: 'Welcome Email' });
+  // return data to enqueue
+  return { to: 'someone', message: 'Welcome Email' };
 });
 ```
 

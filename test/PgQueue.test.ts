@@ -32,7 +32,7 @@ test('PgQueue', async () => {
   expect(pool.connect).toBeCalled();
 
   await queue.enqueue('test1');
-  await queue.enqueueing(enqueue => enqueue('test2'));
+  await queue.enqueue(async () => 'test2');
 
   await sleep(200);
 
