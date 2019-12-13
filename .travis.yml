@@ -15,4 +15,4 @@ node_js:
   - lts/erbium
 
 before_script:
-  - psql -p 5433 -c 'create database travis_ci_test;' -U postgres
+  - psql -h localhost -p 5433 -c 'create database travis_ci_test;' -U postgres
