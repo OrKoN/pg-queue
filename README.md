@@ -1,4 +1,8 @@
-# pg-queue
+<h1 align="center">
+  pg-queue
+  <a href="https://www.npmjs.org/package/pg-queue"><img src="https://img.shields.io/npm/v/pg-queue.svg?style=flat" alt="npm"></a>
+  <a href="https://travis-ci.org/OrKoN/pg-queue"><img src="https://travis-ci.org/OrKoN/pg-queue.svg?branch=master" alt="travis"></a>
+</h1>
 
 Transactional background processing with PostgreSQL and Node.js/TypeScript:
 
