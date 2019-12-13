@@ -5,7 +5,7 @@ env:
   - CC=clang CXX=clang++ npm_config_clang=1 PGUSER=postgres PGDATABASE=postgres
 
 node_js:
-  - lts
+  - lts/erbium
 
 matrix:
   include:
