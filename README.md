@@ -20,7 +20,6 @@ await queue.enqueueing(async (enqueue, client) => {
   // and enqueue transactionally
   await enqueue('test2');
 });
-
 ```
 
 ## Connecting
