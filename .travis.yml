@@ -8,11 +8,11 @@ addons:
       - postgresql-client-12
 env:
   global:
-    - PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
-    - DATABASE_URL=postgres://postgres:postgres@localhost:5433/travis_ci_test
+    - PGUSER=postgres PGDATABASE=postgres PGPASSWORD=
+    - DATABASE_URL=postgres://postgres@localhost:5433/travis_ci_test
 
 node_js:
   - lts/erbium
 
 before_script:
-  - psql -h localhost -p 5433 -c 'create database travis_ci_test;' -U postgres
+  - psql -h localhost -p 5433 -c 'create database travis_ci_test;' -U postgres -w
