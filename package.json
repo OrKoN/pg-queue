@@ -3,9 +3,9 @@
   "version": "0.1.5",
   "license": "LGPL-3.0-only",
   "author": "Oleksii Rudenko",
-  "main": "dist/PgQueue.js",
+  "main": "dist/index.js",
   "module": "dist/pg-queue.esm.js",
-  "typings": "dist/PgQueue.d.ts",
+  "typings": "dist/index.d.ts",
   "files": [
     "dist"
   ],
