@@ -8,8 +8,13 @@ addons:
       - postgresql-client-12
 env:
   global:
-    - PGUSER=postgres PGDATABASE=postgres PGPASSWORD=postgres
-    - DATABASE_URL=postgres://postgres:postgres@localhost:5433/postgres
+    - PGUSER=postgres PGDATABASE=postgres
+    - DATABASE_URL=postgres://postgres@localhost:5433/postgres
+
+before_install:
+  - sudo sed -i -e '/local.*peer/s/postgres/all/' -e 's/peer\|md5/trust/g' /etc/postgresql/*/main/pg_hba.conf
+  - sudo service postgresql restart
+  - sleep 1
 
 node_js:
   - lts/erbium
