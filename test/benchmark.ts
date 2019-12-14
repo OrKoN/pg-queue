@@ -9,7 +9,7 @@ interface Message {
 }
 
 async function main() {
-  let numJobs = 20000;
+  let numJobs = 1000;
   let completedJobs = 0;
   let startQueuing = +new Date();
   let startProcessing = +new Date();

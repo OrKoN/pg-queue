@@ -18,6 +18,11 @@ interface Options {
 
 type HookFn<T> = (client: PoolClient) => Promise<T>;
 
+interface Query {
+  name: string;
+  text: string;
+}
+
 export abstract class PgQueue<T> extends EventEmitter {
   private maxProcessingConcurrency: number;
   private pool: Pool;
@@ -27,6 +32,9 @@ export abstract class PgQueue<T> extends EventEmitter {
 
   private concurrency = 0;
   private stopped = true;
+  private dequeueQuery: Query;
+  private enqueueQuery: Query;
+  private estimateQuery: Query;
 
   public constructor(opts?: Options) {
     super();
@@ -34,6 +42,12 @@ export abstract class PgQueue<T> extends EventEmitter {
     this.queueName = (opts && opts.queueName) || 'default';
     this.maxProcessingConcurrency =
       (opts && opts.maxProcessingConcurrency) || 10;
+
+    assert(
+      this.queueName.length <= 255,
+      'queueName must be less or equal to 255'
+    );
+
     this.pool =
       opts && opts.pool
         ? opts.pool
@@ -46,10 +60,31 @@ export abstract class PgQueue<T> extends EventEmitter {
               : undefined
           );
     this.pool.on('error', err => this.emit('error', err));
-    assert(
-      this.queueName.length <= 255,
-      'queueName must be less or equal to 255'
-    );
+
+    this.dequeueQuery = {
+      name: 'dequeueQuery',
+      text: `DELETE FROM ${e(this.tableName)}
+          WHERE id = (
+            SELECT id
+            FROM ${e(this.tableName)}
+            WHERE queue = $1
+            ORDER BY id
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+          )
+          RETURNING *;
+        `,
+    };
+
+    this.enqueueQuery = {
+      name: 'enqueueQuery',
+      text: `INSERT INTO ${e(this.tableName)}(queue, data) VALUES ($1, $2)`,
+    };
+
+    this.estimateQuery = {
+      name: 'estimateQuery',
+      text: `SELECT COUNT(1) FROM ${e(this.tableName)} WHERE queue = $1`,
+    };
   }
 
   public abstract async perform(data: T, client: PoolClient): Promise<void>;
@@ -80,10 +115,10 @@ export abstract class PgQueue<T> extends EventEmitter {
     try {
       await client.query('BEGIN');
       const data = await fn(client);
-      await client.query(
-        `INSERT INTO ${e(this.tableName)}(queue, data) VALUES ($1, $2)`,
-        [this.queueName, JSON.stringify(data)]
-      );
+      await client.query({
+        ...this.enqueueQuery,
+        values: [this.queueName, JSON.stringify(data)],
+      });
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');
@@ -121,20 +156,10 @@ export abstract class PgQueue<T> extends EventEmitter {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      const { rows } = await client.query(
-        `DELETE FROM ${e(this.tableName)}
-          WHERE id = (
-            SELECT id
-            FROM ${e(this.tableName)}
-            WHERE queue = $1
-            ORDER BY id
-            FOR UPDATE SKIP LOCKED
-            LIMIT 1
-          )
-          RETURNING *;
-        `,
-        [this.queueName]
-      );
+      const { rows } = await client.query({
+        ...this.dequeueQuery,
+        values: [this.queueName],
+      });
       if (rows.length > 0) {
         await this.perform(rows[0].data, client);
       }
@@ -150,12 +175,10 @@ export abstract class PgQueue<T> extends EventEmitter {
   private async estimateQueueSize(): Promise<number> {
     const client = await this.pool.connect();
     try {
-      const count = await client.query(
-        `SELECT COUNT(1)
-       FROM ${e(this.tableName)}
-       WHERE queue = $1`,
-        [this.queueName]
-      );
+      const count = await client.query({
+        ...this.estimateQuery,
+        values: [this.queueName],
+      });
       return parseInt(count.rows[0].count, 10);
     } finally {
       await client.release();
