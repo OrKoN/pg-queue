@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { Pool, PoolClient } from 'pg';
 import EventEmitter from 'events';
+import { up } from 'migrations-engine';
 
 function e(name: string) {
   return '"' + name.replace(/"/g, '""') + '"';
@@ -163,7 +164,41 @@ export abstract class PgQueue<T> extends EventEmitter {
 
   private async migrate() {
     await this.pool.query(
-      `CREATE TABLE IF NOT EXISTS ${this.tableName}(id bigserial, queue varchar(255), data json)`
+      `CREATE TABLE IF NOT EXISTS __pg_queue_migrations(name text)`
     );
+
+    const { rows } = await this.pool.query(
+      `SELECT * FROM __pg_queue_migrations`
+    );
+
+    const migrations = [
+      {
+        name: '00001-init',
+        sql: `CREATE TABLE IF NOT EXISTS ${this.tableName}(id bigserial, queue varchar(255), data json)`,
+      },
+    ];
+
+    const remainingMigrations = up(rows, migrations);
+
+    for (const m of remainingMigrations) {
+      const client = await this.pool.connect();
+      try {
+        const migration = migrations.find(item => item.name === m.name);
+        if (!migration) {
+          throw new Error(`Migration ${m.name} is missing`);
+        }
+        await client.query('BEGIN');
+        await client.query(migration.sql);
+        await client.query(`INSERT INTO __pg_queue_migrations VALUES($1)`, [
+          migration.name,
+        ]);
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+    }
   }
 }

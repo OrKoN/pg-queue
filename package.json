@@ -15,7 +15,8 @@
     "test": "tsdx test",
     "lint": "tsdx lint",
     "docs": "typedoc --plugin typedoc-plugin-markdown",
-    "benchmark": "ts-node ./test/benchmark.ts"
+    "benchmark": "ts-node ./test/benchmark.ts",
+    "prepublishOnly": "yarn test && yarn build"
   },
   "peerDependencies": {},
   "husky": {
@@ -41,6 +42,7 @@
     "typescript": "^3.7.3"
   },
   "dependencies": {
+    "migrations-engine": "^0.1.1",
     "pg": "^7.14.0"
   }
 }

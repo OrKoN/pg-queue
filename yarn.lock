@@ -3968,6 +3968,11 @@ micromatch@^3.1.10, micromatch@^3.1.4:
     snapdragon "^0.8.1"
     to-regex "^3.0.2"
 
+migrations-engine@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/migrations-engine/-/migrations-engine-0.1.1.tgz#390255229ddb7f9e16c743697c003215fb316ac2"
+  integrity sha512-xuSOBiy3k/xedsKnJB9Blz/paMk2tBGprRt4o1NAwn1NG9/8XH+68F0urn0QbADGdzfZmxRID5EwncxFJTYpsw==
+
 mime-db@1.42.0:
   version "1.42.0"
   resolved "https://registry.yarnpkg.com/mime-db/-/mime-db-1.42.0.tgz#3e252907b4c7adb906597b4b65636272cf9e7bac"

@@ -35,7 +35,8 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript.
   ```ts
   class EmailSendingQueue extends PgQueue<Email> {
     async perform(email, db) {
-      // ... send the email ...
+      // email: Email, db: PoolClient
+      // send the email
       // optionally use db for processing of the data in the same transaction
       // await db.query('UPDATE user SET lastEmailOn = NOW() WHERE id = someone')
     }
@@ -49,11 +50,21 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript.
   await queue.start();
   ```
 
+  Constructor options:
+
+  - `connectionString` (string) - connection URL of the database to connect to
+  - `maxProcessingConcurrency` (integer) - how many jobs will be processed at once by the queue instance
+  - `maxTransactionConcurrency` (integer) - how many transactions can the queue handle at the same time
+  - `pool` (pg.Pool) - an instance of `pg`'s Pool. If you provide it, the `connectionString` and `maxTransactionConcurrency` won't apply.
+  - `queueName` (string, max 255) - the logic name of the queue.
+  - `tableName` (string) - the table name that PgQueue will use to store jobs
+
 - Schedule the jobs from any process:
 
   ```ts
   await queue.enqueue({ to: 'someone', message: 'Welcome Email' });
   await queue.enqueue(async db => {
+    // db: PoolClient
     // optionally use db to perform changes in the enqueueing transaction
     // await db.query('UPDATE user SET registered = true WHERE id = someone')
     // return data to enqueue
