@@ -1,9 +1,3 @@
-var memwatch = require('node-memwatch');
-
-memwatch.on('leak', function(info: any) {
-  console.log(info);
-});
-
 import { PgQueue } from '../src/PgQueue';
 
 function sleep(ms: number) {
@@ -14,8 +8,13 @@ interface Message {
   i: number;
 }
 
-async function main() {
-  let numJobs = 100000;
+async function runTest(
+  numJobs: number,
+  numWorkers: number,
+  fifo: boolean,
+  maxProcessingConcurrency: number,
+  maxTransactionConcurrency: number
+) {
   let completedJobs = 0;
   let startQueuing = +new Date();
   let startProcessing = +new Date();
@@ -24,9 +23,8 @@ async function main() {
 
   const counts = new WeakMap();
 
-  class MyWorker extends PgQueue<Message> {
+  class MyQueue extends PgQueue<Message> {
     async perform() {
-      // await sleep(1000);
       completedJobs++;
       if (numJobs === completedJobs) {
         endProcessing = +new Date();
@@ -35,20 +33,18 @@ async function main() {
     }
   }
 
-  const queues = [
-    new MyWorker({
-      connectionString: process.env.DATABASE_URL,
-    }),
-    new MyWorker({
-      connectionString: process.env.DATABASE_URL,
-    }),
-    new MyWorker({
-      connectionString: process.env.DATABASE_URL,
-    }),
-    new MyWorker({
-      connectionString: process.env.DATABASE_URL,
-    }),
-  ];
+  const queues: MyQueue[] = [];
+
+  for (let i = 0; i < numWorkers; i++) {
+    queues.push(
+      new MyQueue({
+        connectionString: process.env.DATABASE_URL,
+        fifo,
+        maxProcessingConcurrency,
+        maxTransactionConcurrency,
+      })
+    );
+  }
 
   for (const q of queues) {
     counts.set(q, 0);
@@ -86,26 +82,53 @@ async function main() {
   const durationQueuing = (endQueueing - startQueuing) / 1000;
   const durationProcessing = (endProcessing - startProcessing) / 1000;
 
+  console.log();
   console.log(
-    'queueing jobs/s =',
-    numJobs / durationQueuing,
-    'processing jobs/s =',
-    completedJobs / durationProcessing
+    'Num jobs =',
+    numJobs,
+    ';',
+    'Num workers =',
+    numWorkers,
+    ';',
+    'FIFO =',
+    fifo,
+    ';',
+    'maxProcessingConcurrency =',
+    maxProcessingConcurrency,
+    ';',
+    'maxTransactionConcurrency =',
+    maxTransactionConcurrency,
+    ';'
   );
 
-  console.log();
-  for (let i = 0; i < queues.length; i++) {
-    console.log('queue', i, 'processed:', counts.get(queues[i]));
-  }
+  console.log(
+    'queueing speed (jobs/s) =',
+    numJobs / durationQueuing,
+    ';',
+    'processing speed (jobs/s) =',
+    completedJobs / durationProcessing,
+    ';'
+  );
 
-  console.log();
-  console.log('Memory usage');
-  const used = process.memoryUsage() as any;
-  for (let key in used) {
-    console.log(
-      `${key} ${Math.round((used[key] / 1024 / 1024) * 100) / 100} MB`
-    );
-  }
+  // console.log();
+  // for (let i = 0; i < queues.length; i++) {
+  //   console.log('queue', i, 'processed:', counts.get(queues[i]));
+  // }
+  // console.log();
+}
+
+async function main() {
+  await runTest(200, 1, true, 1, 1);
+  await runTest(200, 1, false, 1, 1);
+
+  await runTest(2000, 1, true, 10, 10);
+  await runTest(2000, 1, false, 10, 10);
+
+  await runTest(2000, 4, true, 10, 10);
+  await runTest(2000, 4, false, 10, 10);
+
+  await runTest(20000, 4, true, 10, 10);
+  await runTest(20000, 4, false, 10, 10);
 }
 
 main();
