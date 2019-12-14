@@ -26,17 +26,26 @@ async function main() {
     }
   }
 
-  const queue = new MyWorker({
-    connectionString: process.env.DATABASE_URL,
-    maxTransactionConcurrency: 100,
-    maxProcessingConcurrency: 100,
-  });
+  const queues = [
+    new MyWorker({
+      connectionString: process.env.DATABASE_URL,
+    }),
+    new MyWorker({
+      connectionString: process.env.DATABASE_URL,
+    }),
+    new MyWorker({
+      connectionString: process.env.DATABASE_URL,
+    }),
+    new MyWorker({
+      connectionString: process.env.DATABASE_URL,
+    }),
+  ];
 
   try {
     const promises = [];
 
     for (let i = 0; i < numJobs; i++) {
-      promises.push(queue.enqueue({ i }));
+      promises.push(queues[0].enqueue({ i }));
     }
 
     await promises;
@@ -45,13 +54,17 @@ async function main() {
 
     startProcessing = +new Date();
 
-    await queue.start();
+    for (const q of queues) {
+      await q.start();
+    }
 
     while (completedJobs < numJobs) {
       await sleep(100);
     }
   } finally {
-    await queue.stop();
+    for (const q of queues) {
+      await q.stop();
+    }
   }
 
   const durationQueuing = (endQueueing - startQueuing) / 1000;
