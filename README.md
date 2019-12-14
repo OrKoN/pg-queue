@@ -47,6 +47,7 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript.
 
   ```ts
   const queue = new EmailSendingQueue();
+  await queue.migrate(); // run once on startup for any queue type
   await queue.start();
   ```
 
