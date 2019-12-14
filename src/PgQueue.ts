@@ -11,6 +11,7 @@ interface Options {
   connectionString?: string;
   maxProcessingConcurrency?: number;
   maxTransactionConcurrency?: number;
+  pollingInterval?: number;
   pool?: Pool;
   queueName?: string;
   tableName?: string;
@@ -28,7 +29,7 @@ export abstract class PgQueue<T> extends EventEmitter {
   private pool: Pool;
   private queueName: string;
   private tableName: string;
-  private pollingInterval = 100;
+  private pollingInterval: number;
 
   private concurrency = 0;
   private stopped = true;
@@ -42,6 +43,7 @@ export abstract class PgQueue<T> extends EventEmitter {
     this.queueName = (opts && opts.queueName) || 'default';
     this.maxProcessingConcurrency =
       (opts && opts.maxProcessingConcurrency) || 10;
+    this.pollingInterval = (opts && opts.pollingInterval) || 100;
 
     assert(
       this.queueName.length <= 255,

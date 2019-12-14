@@ -58,6 +58,7 @@ Transactional background processing with PostgreSQL and Node.js/TypeScript.
   - `pool` (pg.Pool) - an instance of `pg`'s Pool. If you provide it, the `connectionString` and `maxTransactionConcurrency` won't apply.
   - `queueName` (string, max 255) - the logic name of the queue.
   - `tableName` (string) - the table name that PgQueue will use to store jobs
+  - `pollingInterval` (integer, default = 100) - how often the queue will poll for new messages. Don't use very low value to reduce the number of queries.
 
 - Schedule the jobs from any process:
 
