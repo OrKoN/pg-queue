@@ -9,7 +9,7 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-test('PgQueue', async () => {
+test('PgQueue any order', async () => {
   class MyWorker extends PgQueue<any> {
     async perform() {}
   }
@@ -41,4 +41,33 @@ test('PgQueue', async () => {
   await queue.stop();
 
   expect(pool.end).toBeCalledTimes(1);
+});
+
+test('PgQueue FIFO', async () => {
+  const data: any[] = [];
+
+  class MyWorker extends PgQueue<any> {
+    async perform(item: any) {
+      data.push(item);
+    }
+  }
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+
+  const queue = new MyWorker({
+    pool,
+  });
+
+  await queue.start();
+
+  await queue.enqueue('test2');
+  await queue.enqueue('test1');
+
+  await sleep(200);
+
+  await queue.stop();
+
+  expect(data).toEqual(['test2', 'test1']);
 });

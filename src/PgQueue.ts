@@ -15,6 +15,7 @@ interface Options {
   pool?: Pool;
   queueName?: string;
   tableName?: string;
+  fifo?: boolean;
 }
 
 type HookFn<T> = (client: PoolClient) => Promise<T>;
@@ -24,18 +25,22 @@ interface Query {
   text: string;
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export abstract class PgQueue<T> extends EventEmitter {
   private maxProcessingConcurrency: number;
+  private pollingInterval: number;
   private pool: Pool;
   private queueName: string;
   private tableName: string;
-  private pollingInterval: number;
 
   private concurrency = 0;
-  private stopped = true;
   private dequeueQuery: Query;
   private enqueueQuery: Query;
   private estimateQuery: Query;
+  private stopped = true;
 
   public constructor(opts?: Options) {
     super();
@@ -44,10 +49,14 @@ export abstract class PgQueue<T> extends EventEmitter {
     this.maxProcessingConcurrency =
       (opts && opts.maxProcessingConcurrency) || 10;
     this.pollingInterval = (opts && opts.pollingInterval) || 100;
-
     assert(
       this.queueName.length <= 255,
       'queueName must be less or equal to 255'
+    );
+
+    assert(
+      this.pollingInterval >= 100,
+      'pollingInterval must be more than 100 ms'
     );
 
     this.pool =
@@ -63,9 +72,11 @@ export abstract class PgQueue<T> extends EventEmitter {
           );
     this.pool.on('error', err => this.emit('error', err));
 
-    this.dequeueQuery = {
-      name: 'dequeueQuery',
-      text: `DELETE FROM ${e(this.tableName)}
+    this.dequeueQuery =
+      opts && opts.fifo
+        ? {
+            name: 'dequeueFifoQuery',
+            text: `DELETE FROM ${e(this.tableName)}
           WHERE id = (
             SELECT id
             FROM ${e(this.tableName)}
@@ -76,7 +87,20 @@ export abstract class PgQueue<T> extends EventEmitter {
           )
           RETURNING *;
         `,
-    };
+          }
+        : {
+            name: 'dequeueFifoQuery',
+            text: `DELETE FROM ${e(this.tableName)}
+          WHERE id = (
+            SELECT id
+            FROM ${e(this.tableName)}
+            WHERE queue = $1
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+          )
+          RETURNING *;
+        `,
+          };
 
     this.enqueueQuery = {
       name: 'enqueueQuery',
@@ -92,9 +116,8 @@ export abstract class PgQueue<T> extends EventEmitter {
   public abstract async perform(data: T, client: PoolClient): Promise<void>;
 
   public async start() {
-    await this.migrate();
     this.stopped = false;
-    await this.poll();
+    this.poll();
   }
 
   public async stop() {
@@ -137,24 +160,35 @@ export abstract class PgQueue<T> extends EventEmitter {
 
     let estimatedQueueSize = await this.estimateQueueSize();
 
-    while (
-      estimatedQueueSize > 0 &&
-      this.concurrency < this.maxProcessingConcurrency
-    ) {
-      estimatedQueueSize--;
-      this.concurrency++;
-      this.dequeue().finally(() => this.concurrency--);
+    while (estimatedQueueSize > 0) {
+      while (
+        estimatedQueueSize > 0 &&
+        this.concurrency < this.maxProcessingConcurrency
+      ) {
+        estimatedQueueSize--;
+        this.concurrency++;
+        setImmediate(() =>
+          this.dequeue()
+            .then(count => {
+              if (count === 0) {
+                estimatedQueueSize = 0;
+              }
+            })
+            .catch(err => this.emit('error', err))
+            .finally(() => this.concurrency--)
+        );
+      }
+
+      await sleep(25);
     }
 
-    await this.schedulePolling();
+    await sleep(this.pollingInterval);
+
+    await this.poll();
   }
 
-  private async schedulePolling() {
-    !this.stopped &&
-      setTimeout(() => !this.stopped && this.poll(), this.pollingInterval);
-  }
-
-  private async dequeue() {
+  private async dequeue(): Promise<number | undefined> {
+    if (this.stopped) return;
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -166,12 +200,14 @@ export abstract class PgQueue<T> extends EventEmitter {
         await this.perform(rows[0].data, client);
       }
       await client.query('COMMIT');
+      return rows.length;
     } catch (e) {
       await client.query('ROLLBACK');
       this.emit('error', e);
     } finally {
       client.release();
     }
+    return undefined;
   }
 
   private async estimateQueueSize(): Promise<number> {
@@ -187,7 +223,7 @@ export abstract class PgQueue<T> extends EventEmitter {
     }
   }
 
-  private async migrate() {
+  public async migrate() {
     await this.pool.query(
       `CREATE TABLE IF NOT EXISTS __pg_queue_migrations(name text)`
     );
@@ -200,6 +236,18 @@ export abstract class PgQueue<T> extends EventEmitter {
       {
         name: '00001-init',
         sql: `CREATE TABLE IF NOT EXISTS ${this.tableName}(id bigserial, queue varchar(255), data json)`,
+      },
+      {
+        name: '00002-indexes',
+        sql: `CREATE INDEX idx_${this.tableName}_queue ON ${this.tableName}(queue);`,
+      },
+      {
+        name: '00003-not-null-queue',
+        sql: `ALTER TABLE ${this.tableName} ALTER COLUMN queue SET NOT NULL;`,
+      },
+      {
+        name: '00004-not-null-queue',
+        sql: `ALTER TABLE ${this.tableName} ALTER COLUMN data SET NOT NULL;`,
       },
     ];
 

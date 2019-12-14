@@ -1,3 +1,9 @@
+var memwatch = require('node-memwatch');
+
+memwatch.on('leak', function(info: any) {
+  console.log(info);
+});
+
 import { PgQueue } from '../src/PgQueue';
 
 function sleep(ms: number) {
@@ -9,12 +15,14 @@ interface Message {
 }
 
 async function main() {
-  let numJobs = 1000;
+  let numJobs = 100000;
   let completedJobs = 0;
   let startQueuing = +new Date();
   let startProcessing = +new Date();
   let endQueueing = +new Date();
   let endProcessing = +new Date();
+
+  const counts = new WeakMap();
 
   class MyWorker extends PgQueue<Message> {
     async perform() {
@@ -23,6 +31,7 @@ async function main() {
       if (numJobs === completedJobs) {
         endProcessing = +new Date();
       }
+      counts.set(this, counts.get(this) + 1);
     }
   }
 
@@ -41,6 +50,11 @@ async function main() {
     }),
   ];
 
+  for (const q of queues) {
+    counts.set(q, 0);
+    q.on('error', e => console.log(e));
+  }
+
   try {
     const promises = [];
 
@@ -53,6 +67,8 @@ async function main() {
     endQueueing = +new Date();
 
     startProcessing = +new Date();
+
+    await sleep(200);
 
     for (const q of queues) {
       await q.start();
@@ -76,6 +92,20 @@ async function main() {
     'processing jobs/s =',
     completedJobs / durationProcessing
   );
+
+  console.log();
+  for (let i = 0; i < queues.length; i++) {
+    console.log('queue', i, 'processed:', counts.get(queues[i]));
+  }
+
+  console.log();
+  console.log('Memory usage');
+  const used = process.memoryUsage() as any;
+  for (let key in used) {
+    console.log(
+      `${key} ${Math.round((used[key] / 1024 / 1024) * 100) / 100} MB`
+    );
+  }
 }
 
 main();
