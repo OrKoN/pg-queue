@@ -13,7 +13,8 @@ async function runTest(
   numWorkers: number,
   fifo: boolean,
   maxProcessingConcurrency: number,
-  maxTransactionConcurrency: number
+  maxTransactionConcurrency: number,
+  jobDuration = 0
 ) {
   let completedJobs = 0;
   let startQueuing = +new Date();
@@ -25,6 +26,9 @@ async function runTest(
 
   class MyQueue extends PgQueue<Message> {
     async perform() {
+      if (jobDuration > 0) {
+        await sleep(jobDuration);
+      }
       completedJobs++;
       if (numJobs === completedJobs) {
         endProcessing = +new Date();
@@ -62,9 +66,9 @@ async function runTest(
 
     endQueueing = +new Date();
 
-    startProcessing = +new Date();
-
     await sleep(200);
+
+    startProcessing = +new Date();
 
     for (const q of queues) {
       await q.start();
@@ -98,6 +102,9 @@ async function runTest(
     ';',
     'maxTransactionConcurrency =',
     maxTransactionConcurrency,
+    ';',
+    'avgJobDuration =',
+    jobDuration,
     ';'
   );
 
@@ -129,6 +136,15 @@ async function main() {
 
   await runTest(20000, 4, true, 10, 10);
   await runTest(20000, 4, false, 10, 10);
+
+  await runTest(20000, 4, true, 10, 10, 10);
+  await runTest(20000, 4, false, 10, 10, 10);
+
+  await runTest(2000, 4, true, 10, 10, 100);
+  await runTest(2000, 4, false, 10, 10, 100);
+
+  await runTest(2000, 4, true, 10, 10, 1000);
+  await runTest(2000, 4, false, 10, 10, 1000);
 }
 
 main();

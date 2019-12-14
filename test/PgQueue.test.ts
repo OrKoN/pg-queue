@@ -27,6 +27,7 @@ test('PgQueue any order', async () => {
 
   jest.spyOn(queue, 'perform');
 
+  await queue.migrate();
   await queue.start();
 
   expect(pool.connect).toBeCalled();
@@ -60,6 +61,7 @@ test('PgQueue FIFO', async () => {
     pool,
   });
 
+  await queue.migrate();
   await queue.start();
 
   await queue.enqueue('test2');
