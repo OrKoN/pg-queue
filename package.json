@@ -1,6 +1,6 @@
 {
   "name": "pg-queue",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "license": "LGPL-3.0-only",
   "author": "Oleksii Rudenko",
   "main": "dist/index.js",
