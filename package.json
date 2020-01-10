@@ -31,18 +31,18 @@
     "trailingComma": "es5"
   },
   "devDependencies": {
-    "@types/jest": "^24.0.23",
-    "@types/pg": "^7.11.2",
-    "husky": "^3.1.0",
-    "ts-node": "^8.5.4",
-    "tsdx": "^0.11.0",
+    "@types/jest": "^24.0.25",
+    "@types/pg": "^7.14.1",
+    "husky": "^4.0.6",
+    "ts-node": "^8.6.0",
+    "tsdx": "^0.12.1",
     "tslib": "^1.10.0",
-    "typedoc": "^0.15.4",
-    "typedoc-plugin-markdown": "^2.2.14",
-    "typescript": "^3.7.3"
+    "typedoc": "^0.15.8",
+    "typedoc-plugin-markdown": "^2.2.16",
+    "typescript": "^3.7.4"
   },
   "dependencies": {
-    "migrations-engine": "^0.1.1",
-    "pg": "^7.14.0"
+    "migrations-engine": "^0.1.2",
+    "pg": "^7.17.1"
   }
 }
